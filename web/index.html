@@ -91,7 +91,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .seg button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* Main area */
-.main { display: grid; grid-template-columns: minmax(0, 1fr) 440px; min-height: 0; }
+.main { overflow-anchor: none; display: grid; grid-template-columns: minmax(0, 1fr) 440px; min-height: 0; }
 .mapwrap { position: relative; min-height: 0; background: var(--map-bg); overflow: hidden; }
 #map { width: 100%; height: 100%; display: block; touch-action: none; }
 .buurt { stroke: var(--surface); stroke-width: 0.7; vector-effect: non-scaling-stroke; cursor: pointer; fill-rule: evenodd; }
@@ -142,7 +142,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .tip span { font-family: var(--font-data); font-size: 12px; color: var(--muted); }
 
 /* Panel */
-.panel { overflow-y: auto; border-left: 1px solid var(--line); background: var(--surface); min-width: 0; display: flex; flex-direction: column; }
+.panel { overflow-anchor: none; overflow-y: auto; border-left: 1px solid var(--line); background: var(--surface); min-width: 0; display: flex; flex-direction: column; }
 .tabs { position: sticky; top: 0; z-index: 2; display: flex; gap: 4px; padding: 10px 20px 0; background: var(--surface); border-bottom: 1px solid var(--line); }
 .tabs button {
   border: 0; background: none; padding: 8px 10px 10px; cursor: pointer; font-weight: 600; font-size: 14px; color: var(--muted);
@@ -896,14 +896,42 @@ ${top.map((r) => { const b = byCode[r.code]; return `- ${b.name} (${wijkShort(b.
     return `<svg viewBox="0 0 96 28" aria-hidden="true">${cs ? `<path class="spk-c" d="${line(cs)}"></path>` : ""}${bs ? `<path class="spk-b" d="${line(bs)}"></path>` : ""}${last >= 0 ? `<circle class="spk-e" cx="${X(last)}" cy="${Y(bs[last])}" r="2.4"></circle>` : ""}</svg>`;
   }
 
+  // Re-rendering replaces the panel's content, and the sections above the
+  // reader's position (name, standouts, similar buurten) change height between
+  // buurten. To keep the view still, remember which row sits at the top of the
+  // visible area and put that same row back at the same spot afterwards.
+  const ANCHORS = ".row[data-k], .trend[data-k], [data-anchor]";
+  const anchorKey = (el) => el.dataset.anchor || (el.classList.contains("row") ? "row:" : "trend:") + el.dataset.k;
+  // Desktop: the panel scrolls. Phone layout: the whole main area scrolls.
+  const scroller = () => (getComputedStyle($("panel")).overflowY === "visible" ? document.querySelector(".main") : $("panel"));
+  const viewTop = (sc) => Math.max(sc.getBoundingClientRect().top, $("panel").querySelector(".tabs").getBoundingClientRect().bottom);
+
+  function captureAnchor(sc) {
+    if (sc.scrollTop <= 2) return null; // at the top: stay at the top
+    const top = viewTop(sc);
+    for (const el of $("pbody").querySelectorAll(ANCHORS)) {
+      const r = el.getBoundingClientRect();
+      if (r.bottom > top + 1) return { key: anchorKey(el), off: r.top - top, scroll: sc.scrollTop };
+    }
+    return null;
+  }
+  function restoreAnchor(sc, a) {
+    if (!a) return;
+    const el = [...$("pbody").querySelectorAll(ANCHORS)].find((e) => anchorKey(e) === a.key);
+    if (el) sc.scrollTop += el.getBoundingClientRect().top - viewTop(sc) - a.off;
+    else sc.scrollTop = a.scroll;
+  }
+
   function renderPanel(scrollTop = true) {
     $("t-profile").textContent = T().tabProfile;
     $("t-find").textContent = T().tabFind;
-    const P = $("pbody");
+    const P = $("pbody"), sc = scroller();
+    const anchor = scrollTop ? null : captureAnchor(sc);
     P.innerHTML = tab === "find" ? finderHTML() : profileHTML();
     wirePanel(P);
     if (tab === "find") paintExplain();
     if (scrollTop) $("panel").scrollTop = 0;
+    else restoreAnchor(sc, anchor);
   }
 
   function profileHTML() {
@@ -960,7 +988,7 @@ ${top.map((r) => { const b = byCode[r.code]; return `- ${b.name} (${wijkShort(b.
             ${strip(ind.key)}
           </button>`;
       }).join("");
-      return `<section class="group"><h3>${esc(G(inds[0]))}</h3>${rows}</section>`;
+      return `<section class="group"><h3 data-anchor="g:${esc(inds[0].group)}">${esc(G(inds[0]))}</h3>${rows}</section>`;
     }).join("");
 
     return `
@@ -975,9 +1003,9 @@ ${top.map((r) => { const b = byCode[r.code]; return `- ${b.name} (${wijkShort(b.
         <button type="button" class="btn${picking ? " on" : ""}" id="cmpbtn">${esc(cmp ? t.changeCmp : t.compare)}</button>
         ${cmp ? `<span class="cmpchip"><i></i>${esc(cmp.name)}</span><button type="button" class="btn" id="cmpclear">${esc(t.clear)}</button>` : ""}
       </div>
-      ${so ? `<section class="sec"><h3>${esc(t.stands)}</h3><div class="standgrid">${so}</div></section>` : ""}
-      ${sims ? `<section class="sec"><h3>${esc(t.similar)}</h3><p class="hint">${esc(t.similarHint)}</p><div class="list">${sims}</div></section>` : ""}
-      ${trends ? `<section class="sec"><h3>${esc(t.trends)}</h3><p class="hint">${esc(t.trendsHint(years[0], years[years.length - 1]))}</p><div class="list">${trends}</div></section>` : ""}
+      ${so ? `<section class="sec"><h3 data-anchor="sec:stands">${esc(t.stands)}</h3><div class="standgrid">${so}</div></section>` : ""}
+      ${sims ? `<section class="sec"><h3 data-anchor="sec:similar">${esc(t.similar)}</h3><p class="hint">${esc(t.similarHint)}</p><div class="list">${sims}</div></section>` : ""}
+      ${trends ? `<section class="sec"><h3 data-anchor="sec:trends">${esc(t.trends)}</h3><p class="hint">${esc(t.trendsHint(years[0], years[years.length - 1]))}</p><div class="list">${trends}</div></section>` : ""}
       <div class="keyline">
         <span><i style="background:var(--accent)"></i>${esc(sel.name)}</span>
         ${cmp ? `<span><i style="background:var(--compare)"></i>${esc(cmp.name)}</span>` : ""}
@@ -1036,7 +1064,7 @@ ${top.map((r) => { const b = byCode[r.code]; return `- ${b.name} (${wijkShort(b.
     if (scores) {
       const top = topResults(10);
       const left = D.buurten.length - scores.size;
-      results = `<section class="sec"><h3>${esc(t.results)}</h3>
+      results = `<section class="sec"><h3 data-anchor="sec:results">${esc(t.results)}</h3>
         ${top.length ? `<div class="list">${top.map((r, i) => {
           const b = byCode[r.code];
           const sorted = [...r.parts].sort((a, c) => c.p * c.w - a.p * a.w);
@@ -1051,7 +1079,7 @@ ${top.map((r) => { const b = byCode[r.code]; return `- ${b.name} (${wijkShort(b.
         ${top.length && left ? `<p class="hint">${esc(t.excluded(left))}</p>` : ""}
         ${sel && scores.has(sel.code) ? `<div><button type="button" class="btn" id="openprof">${esc(t.openProfile)}: ${esc(sel.name)}</button></div>` : ""}
       </section>
-      ${P && top.length ? `<section class="sec"><h3>${esc(t.explainTitle)}</h3>
+      ${P && top.length ? `<section class="sec"><h3 data-anchor="sec:explain">${esc(t.explainTitle)}</h3>
         ${explainState === "busy" ? `<div class="askrow"><span class="status">${esc(t.thinking)}</span><button type="button" class="btn" id="explstop">${esc(t.stop)}</button></div>` : ""}
         <div class="explain" id="explain"></div>
         ${explainState !== "busy" && !explainText ? `<div><button type="button" class="btn" id="explbtn">${esc(t.explainBtn(P.label))}</button></div>` : ""}
@@ -1063,8 +1091,8 @@ ${top.map((r) => { const b = byCode[r.code]; return `- ${b.name} (${wijkShort(b.
       <h2 class="lead">${esc(t.fLead)}</h2>
       <p class="sub">${esc(t.fSub)}</p>
       <section class="sec">${aiBox}</section>
-      <section class="sec"><h3>${esc(t.quick)}</h3><div class="chips">${chips}</div></section>
-      <section class="sec"><h3>${esc(t.criteria)}</h3>
+      <section class="sec"><h3 data-anchor="sec:quick">${esc(t.quick)}</h3><div class="chips">${chips}</div></section>
+      <section class="sec"><h3 data-anchor="sec:criteria">${esc(t.criteria)}</h3>
         ${crits ? `<div class="crits">${crits}</div>` : `<div class="empty">${esc(t.noCrit)}</div>`}
         <div class="addrow"><select id="addcrit" aria-label="${esc(t.add)}"><option value="">${esc(t.add)}</option>${addOpts}</select></div>
         <div class="budget">
