@@ -855,7 +855,7 @@ ${top.map((r) => { const b = byCode[r.code]; return `- ${b.name} (${wijkShort(b.
       if (cmp === b) cmp = null;
       try { history.replaceState(null, "", "#" + b.code); } catch { /* sandboxed */ }
     }
-    highlight(); renderPanel();
+    highlight(); renderPanel(false); // keep the reader's place in the panel
   }
 
   function setIndicator(k, m) {
