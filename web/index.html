@@ -1,0 +1,1216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Buurt030</title>
+<meta name="description" content="Explore, compare and find Utrecht's 111 neighbourhoods (buurten): CBS figures 2019–2025, OpenStreetMap amenities and AI-assisted matching, in Dutch and English.">
+<meta name="theme-color" content="#c8102e">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c8102e'/%3E%3Ctext x='16' y='21.5' font-family='Arial,sans-serif' font-size='13' font-weight='700' fill='white' text-anchor='middle'%3E030%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one-screen tool. Map on the left, a tabbed panel (Profile / Find your buurt) on the right; stacked on phones. */
+:root {
+  --bg: #eef2f3;
+  --surface: #ffffff;
+  --ink: #13222a;
+  --muted: #5a6a72;
+  --line: #d3dce0;
+  --accent: #c8102e;      /* Utrecht flag red: the selected buurt */
+  --compare: #1f5fd6;     /* blue: the buurt you compare against */
+  --map-bg: #e4eaec;
+  --q0: #e2eef0; --q1: #afd0d6; --q2: #74abb7; --q3: #3d8296; --q4: #1b566c;   /* levels */
+  --c0: #efe9f6; --c1: #d2c3e8; --c2: #a993d1; --c3: #7c62b5; --c4: #4f3a8a;   /* change since 2019 */
+  --m0: #fdf3d8; --m1: #f7dc97; --m2: #eab54f; --m3: #cf8a22; --m4: #9a5c0c;   /* match score */
+  --nodata: #eceeee;
+  --hatch: #c9d0d3;
+  --good: #1f7a4d;
+  --bad: #b3261e;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Instrument Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e161a; --surface: #142026; --ink: #e3ebee; --muted: #93a3ab; --line: #26363e;
+    --accent: #ff5c70; --compare: #6fa6ff; --map-bg: #111c21;
+    --q0: #1c3640; --q1: #22546a; --q2: #2c7a8e; --q3: #4ba3b2; --q4: #93d4d8;
+    --c0: #251d36; --c1: #3d2f5e; --c2: #5d4890; --c3: #8a72c2; --c4: #c3b2ec;
+    --m0: #33280f; --m1: #5c4514; --m2: #8f6619; --m3: #c99224; --m4: #f2c45a;
+    --nodata: #1a252a; --hatch: #2c3a41; --good: #5cc28f; --bad: #ff8a80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e161a; --surface: #142026; --ink: #e3ebee; --muted: #93a3ab; --line: #26363e;
+  --accent: #ff5c70; --compare: #6fa6ff; --map-bg: #111c21;
+  --q0: #1c3640; --q1: #22546a; --q2: #2c7a8e; --q3: #4ba3b2; --q4: #93d4d8;
+  --c0: #251d36; --c1: #3d2f5e; --c2: #5d4890; --c3: #8a72c2; --c4: #c3b2ec;
+  --m0: #33280f; --m1: #5c4514; --m2: #8f6619; --m3: #c99224; --m4: #f2c45a;
+  --nodata: #1a252a; --hatch: #2c3a41; --good: #5cc28f; --bad: #ff8a80;
+  color-scheme: dark;
+}
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg); color: var(--ink);
+  font: 400 15px/1.5 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { height: 100%; display: grid; grid-template-rows: auto 1fr; }
+
+/* Top bar */
+.top {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 18px;
+  padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--surface);
+}
+.brand { display: flex; flex-direction: column; gap: 1px; margin-right: auto; min-width: 0; align-self: center; }
+.brand h1 { margin: 0; font: 700 22px/1.1 var(--font-display); letter-spacing: -0.01em; }
+.brand h1 span { color: var(--accent); }
+.brand p { margin: 0; color: var(--muted); font-size: 12.5px; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.field > label, .field > .flabel { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.field input, .field select {
+  height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--bg); min-width: 0;
+}
+#search { width: 220px; }
+#ind { width: 270px; max-width: 100%; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; height: 36px; background: var(--bg); }
+.seg button { border: 0; background: none; padding: 0 11px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--muted); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.seg button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Main area */
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 440px; min-height: 0; }
+.mapwrap { position: relative; min-height: 0; background: var(--map-bg); overflow: hidden; }
+#map { width: 100%; height: 100%; display: block; touch-action: none; }
+.buurt { stroke: var(--surface); stroke-width: 0.7; vector-effect: non-scaling-stroke; cursor: pointer; fill-rule: evenodd; }
+.buurt.q0 { fill: var(--q0); } .buurt.q1 { fill: var(--q1); } .buurt.q2 { fill: var(--q2); } .buurt.q3 { fill: var(--q3); } .buurt.q4 { fill: var(--q4); }
+.buurt.c0 { fill: var(--c0); } .buurt.c1 { fill: var(--c1); } .buurt.c2 { fill: var(--c2); } .buurt.c3 { fill: var(--c3); } .buurt.c4 { fill: var(--c4); }
+.buurt.m0 { fill: var(--m0); } .buurt.m1 { fill: var(--m1); } .buurt.m2 { fill: var(--m2); } .buurt.m3 { fill: var(--m3); } .buurt.m4 { fill: var(--m4); }
+.buurt.nd { fill: url(#hatch); }
+.buurt:hover { stroke: var(--ink); stroke-width: 1.5; }
+.wijk { fill: none; stroke: var(--ink); stroke-opacity: 0.55; stroke-width: 1.4; vector-effect: non-scaling-stroke; pointer-events: none; fill-rule: evenodd; }
+.hl { fill: none; pointer-events: none; vector-effect: non-scaling-stroke; fill-rule: evenodd; }
+.hl.sel { stroke: var(--accent); stroke-width: 3; }
+.hl.cmp { stroke: var(--compare); stroke-width: 3; stroke-dasharray: 6 3; }
+.rank { font: 600 11px var(--font-data); fill: var(--surface); pointer-events: none; text-anchor: middle; dominant-baseline: central; }
+.rankdot { fill: var(--ink); pointer-events: none; }
+.wlabel {
+  font: 600 11px var(--font-body); letter-spacing: 0.08em; text-transform: uppercase;
+  fill: var(--ink); paint-order: stroke; stroke: var(--map-bg); stroke-width: 3px; stroke-opacity: 0.85;
+  pointer-events: none; text-anchor: middle;
+}
+#hatch-bg { fill: var(--nodata); } #hatch-line { stroke: var(--hatch); }
+
+.legend {
+  position: absolute; left: 16px; bottom: 16px; max-width: calc(100% - 32px);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 10px 12px; display: grid; gap: 6px; font-size: 12px;
+}
+.legend .lt { font-weight: 600; font-size: 13px; }
+.legend .ls { color: var(--muted); }
+.swatches { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.sw { display: flex; align-items: center; gap: 5px; font-family: var(--font-data); font-size: 11px; font-variant-numeric: tabular-nums; }
+.sw i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; border: 1px solid var(--line); }
+.sw i.ndsw { background: repeating-linear-gradient(45deg, var(--nodata) 0 3px, var(--hatch) 3px 5px); }
+.mapbtns { position: absolute; right: 16px; top: 16px; display: flex; gap: 6px; }
+.btn {
+  height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--surface); cursor: pointer; font-size: 13px; font-weight: 500; white-space: nowrap;
+}
+.btn:hover { border-color: var(--ink); }
+.btn.on, .btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.picking { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); background: var(--ink); color: var(--surface);
+  padding: 6px 12px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
+.tip {
+  position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px 9px; font-size: 13px; box-shadow: 0 4px 14px rgb(0 0 0 / 0.12); max-width: 240px;
+}
+.tip b { display: block; font-weight: 600; }
+.tip span { font-family: var(--font-data); font-size: 12px; color: var(--muted); }
+
+/* Panel */
+.panel { overflow-y: auto; border-left: 1px solid var(--line); background: var(--surface); min-width: 0; display: flex; flex-direction: column; }
+.tabs { position: sticky; top: 0; z-index: 2; display: flex; gap: 4px; padding: 10px 20px 0; background: var(--surface); border-bottom: 1px solid var(--line); }
+.tabs button {
+  border: 0; background: none; padding: 8px 10px 10px; cursor: pointer; font-weight: 600; font-size: 14px; color: var(--muted);
+  border-bottom: 2.5px solid transparent; margin-bottom: -1px;
+}
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.pbody { padding: 18px 20px 40px; min-width: 0; }
+.eyebrow { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.pname { margin: 2px 0 6px; font: 700 30px/1.1 var(--font-display); letter-spacing: -0.015em; text-wrap: balance; }
+.pmeta { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); font-size: 13px; }
+.pmeta b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.pactions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 4px; align-items: center; }
+.cmpchip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.cmpchip i { width: 18px; height: 0; border-top: 2.5px dashed var(--compare); display: inline-block; }
+
+.sec { margin-top: 22px; display: grid; gap: 8px; }
+.sec > h3, .group h3 { margin: 0; font: 600 12px var(--font-body); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.sec > .hint { margin: -4px 0 0; font-size: 12.5px; color: var(--muted); }
+.standgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.scard {
+  text-align: left; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg);
+  padding: 10px 11px; cursor: pointer; display: grid; gap: 2px; min-width: 0;
+}
+.scard:hover { border-color: var(--ink); }
+.scard .sl { font-size: 13px; font-weight: 600; line-height: 1.3; }
+.scard .sv { font-family: var(--font-data); font-size: 15px; font-variant-numeric: tabular-nums; }
+.scard .sr { font-size: 12px; color: var(--muted); line-height: 1.35; }
+
+.list { display: grid; }
+.li {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: center;
+  padding: 9px 6px; margin: 0 -6px; border: 0; border-radius: 6px; background: none; text-align: left; cursor: pointer; width: calc(100% + 12px);
+}
+.li + .li { border-top: 1px solid var(--line); border-radius: 0; }
+.li:hover { background: var(--bg); }
+.li .ln { font-weight: 600; font-size: 14px; min-width: 0; }
+.li .lw { font-size: 12px; color: var(--muted); font-weight: 400; }
+.li .lx { grid-column: 1 / -1; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+.li .lx b { color: var(--ink); font-weight: 500; }
+.li .lnum { font-family: var(--font-data); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.li.on { box-shadow: inset 3px 0 0 var(--accent); background: var(--bg); }
+.bar { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--m3); border-radius: 3px; }
+
+.trend {
+  display: grid; grid-template-columns: minmax(0, 1fr) 96px auto; gap: 2px 12px; align-items: center;
+  padding: 7px 6px; margin: 0 -6px; border: 0; background: none; text-align: left; cursor: pointer; border-radius: 6px; width: calc(100% + 12px);
+}
+.trend:hover { background: var(--bg); }
+.trend.active { background: var(--bg); box-shadow: inset 3px 0 0 var(--c3); }
+.trend .tl { font-size: 14px; min-width: 0; }
+.trend .tv { display: block; font-family: var(--font-data); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.trend svg { width: 96px; height: 28px; display: block; }
+.spk-b { fill: none; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.spk-c { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 3 2; vector-effect: non-scaling-stroke; }
+.spk-e { fill: var(--accent); }
+.delta { font-family: var(--font-data); font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.delta small { display: block; font-size: 11px; color: var(--muted); }
+
+.group { margin-top: 22px; display: grid; gap: 2px; }
+.group h3 { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: baseline;
+  padding: 8px 6px; margin: 0 -6px; border: 0; background: none; text-align: left; cursor: pointer; border-radius: 6px; width: calc(100% + 12px);
+}
+.row:hover { background: var(--bg); }
+.row.active { background: var(--bg); box-shadow: inset 3px 0 0 var(--accent); }
+.row .rl { font-size: 14px; min-width: 0; }
+.row .ru { display: block; font-size: 11.5px; color: var(--muted); }
+.row .rv { font-family: var(--font-data); font-size: 14px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.row .rv .c2 { color: var(--compare); margin-left: 8px; }
+.yr { font-family: var(--font-data); font-size: 10px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 3px; margin-left: 5px; vertical-align: 1px; }
+.na { color: var(--muted); font-family: var(--font-body); font-size: 12.5px; }
+.strip { grid-column: 1 / -1; width: 100%; height: 16px; display: block; }
+.strip .t { fill: var(--muted); opacity: 0.35; }
+.strip .base { fill: var(--line); }
+.strip .city { fill: var(--ink); }
+.strip .s { fill: var(--accent); }
+.strip .k { fill: var(--compare); }
+.keyline { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin-top: 16px; }
+.keyline i { display: inline-block; width: 3px; height: 12px; vertical-align: -2px; margin-right: 5px; }
+.notes { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); display: grid; gap: 8px; }
+.notes p { margin: 0; max-width: 65ch; }
+
+/* Finder */
+.lead { margin: 0 0 4px; font: 700 24px/1.15 var(--font-display); letter-spacing: -0.01em; text-wrap: balance; }
+.sub { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 60ch; }
+.askbox { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); }
+.askbox label { font-weight: 600; font-size: 13.5px; }
+.askbox textarea {
+  width: 100%; min-height: 74px; resize: vertical; padding: 9px 10px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--surface); line-height: 1.45; box-sizing: border-box;
+}
+.askrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.status { font-size: 12.5px; color: var(--muted); }
+.cl { font-weight: 600; font-size: 13.5px; }
+.urlrow { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.urlrow code { flex: 1 1 auto; min-width: 0; overflow-x: auto; white-space: nowrap; font: 500 12.5px var(--font-data); padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 13px; }
+.linkbtn { display: inline-flex; align-items: center; text-decoration: none; justify-self: start; }
+.aipick { height: 30px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 0 8px; min-width: 0; max-width: 100%; }
+.status.err { color: var(--bad); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; background: var(--surface);
+  cursor: pointer; font-size: 13px; font-weight: 500;
+}
+.chip:hover { border-color: var(--ink); }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.crits { display: grid; gap: 6px; }
+.crit {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 8px; align-items: center;
+  padding: 6px 8px 6px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13.5px;
+}
+.crit .cn { min-width: 0; }
+.crit .cn small { display: block; color: var(--muted); font-size: 11.5px; }
+.dirbtn, .xbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; height: 28px; padding: 0 8px; cursor: pointer; font-size: 12.5px; white-space: nowrap; }
+.dirbtn:hover, .xbtn:hover { border-color: var(--ink); }
+.wts { display: inline-flex; gap: 3px; }
+.wts button { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--ink); background: none; padding: 0; cursor: pointer; }
+.wts button.f { background: var(--ink); }
+.addrow { display: flex; gap: 8px; flex-wrap: wrap; }
+.addrow select { flex: 1 1 200px; min-width: 0; height: 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); padding: 0 8px; }
+.budget { display: grid; gap: 4px; font-size: 13.5px; }
+.budget .bh { display: flex; align-items: center; gap: 8px; }
+.budget input[type="range"] { width: 100%; accent-color: var(--accent); }
+.budget output { font-family: var(--font-data); font-variant-numeric: tabular-nums; margin-left: auto; }
+.note { font-size: 12.5px; color: var(--muted); padding: 8px 10px; border-left: 3px solid var(--m3); background: var(--bg); border-radius: 0 6px 6px 0; }
+.explain { display: grid; gap: 10px; font-size: 14px; }
+.explain h4 { margin: 0; font: 600 14px var(--font-body); }
+.explain p { margin: 0; color: var(--ink); max-width: 65ch; }
+.empty { padding: 18px; border: 1px dashed var(--line); border-radius: var(--radius); color: var(--muted); font-size: 13.5px; text-align: center; }
+
+@media (max-width: 1000px) {
+  .main { grid-template-columns: 1fr; grid-template-rows: 58vh auto; overflow-y: auto; }
+  .app { height: auto; min-height: 100%; }
+  .panel { border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
+  .controls { width: 100%; }
+  .field.grow { flex: 1 1 220px; }
+  #search, #ind { width: 100%; }
+}
+@media (max-width: 420px) {
+  .standgrid { grid-template-columns: 1fr; }
+  .pname { font-size: 26px; }
+  .trend { grid-template-columns: minmax(0, 1fr) 72px auto; }
+  .trend svg { width: 72px; }
+  .crit { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .crit .wts { grid-column: 1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .buurt { transition: fill 0.25s ease; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>Buurt<span>030</span></h1>
+      <p id="sub"></p>
+    </div>
+    <div class="controls">
+      <div class="field grow">
+        <label for="search" data-t="find"></label>
+        <input id="search" list="buurtlist" autocomplete="off">
+        <datalist id="buurtlist"></datalist>
+      </div>
+      <div class="field grow">
+        <label for="ind" data-t="colour"></label>
+        <select id="ind"></select>
+      </div>
+      <div class="field">
+        <span class="flabel" data-t="show"></span>
+        <div class="seg" role="group" id="modeseg">
+          <button type="button" id="m-level" aria-pressed="true"></button>
+          <button type="button" id="m-change" aria-pressed="false"></button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="flabel">Taal / Language</span>
+        <div class="seg" role="group">
+          <button type="button" id="l-nl" aria-pressed="false" lang="nl">NL</button>
+          <button type="button" id="l-en" aria-pressed="true" lang="en">EN</button>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div class="main">
+    <section class="mapwrap" id="mapwrap">
+      <svg id="map" role="img">
+        <defs>
+          <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect id="hatch-bg" width="6" height="6"></rect>
+            <line id="hatch-line" x1="0" y1="0" x2="0" y2="6" stroke-width="2"></line>
+          </pattern>
+        </defs>
+        <g id="zoomg"><g id="buurten"></g><g id="wijken"></g><g id="hl"></g><g id="labels"></g><g id="ranks"></g></g>
+      </svg>
+      <div class="mapbtns"><button id="reset" type="button" class="btn"></button></div>
+      <div class="picking" id="picking" hidden></div>
+      <div class="legend" id="legend"></div>
+      <div class="tip" id="tip" hidden></div>
+    </section>
+    <aside class="panel" id="panel">
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" id="t-profile" aria-selected="true"></button>
+        <button type="button" role="tab" id="t-find" aria-selected="false"></button>
+      </div>
+      <div class="pbody" id="pbody" aria-live="polite"><p class="eyebrow">…</p></div>
+    </aside>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+(() => {
+  // ------------------------------------------------------------ strings
+  const STR = {
+    en: {
+      sub: (n, y) => `Utrecht · ${n} buurten · CBS ${y}, PDOK & OpenStreetMap`,
+      find: "Find a buurt", searchPh: "Name or postcode, e.g. 3572", colour: "Colour map by", show: "Show",
+      level: "Now", change: "Since 2019", changeOff: "No yearly series for this indicator",
+      reset: "Reset view", picking: "Click a second buurt to compare",
+      tabProfile: "Profile", tabFind: "Find your buurt",
+      residents: "residents", postcode: "Postcode area",
+      compare: "Compare with another buurt", changeCmp: "Change comparison", clear: "Clear",
+      stands: "What stands out", higher: (p) => `Higher than ${p}% of buurten`, lower: (p) => `Lower than ${p}% of buurten`,
+      city: "city", cityWhole: "Utrecht as a whole", everyOther: "every other buurt",
+      similar: "Buurten like this one", similarHint: "Closest overall profile across all indicators.",
+      alike: "Alike in", differs: "Differs most in", match: "match",
+      trends: "How it changed", trendsHint: (a, b) => `${a}–${b}. Red: this buurt, dashed: Utrecht.`,
+      vsCity: "city", notPub: "Not published", latestFrom: (y) => `Latest CBS figure is from ${y}`,
+      legendSrc: (s, y) => `${s} · ${y} · five equal-sized groups of buurten`,
+      legendChange: (l, a, b) => `${l}: change ${a}–${b}`, legendCity: (v) => `Utrecht: ${v}`,
+      legendScore: "Match with your wishes", legendScoreSub: "Score 0–100 · darker is a better match · hatched: outside your budget or no data",
+      notes1: (ys, prev) => `Figures come from CBS Kerncijfers wijken en buurten ${ys}. CBS publishes income, labour, care and energy figures about a year later than the rest, so those show ${prev} (marked).`,
+      notes2: "Trends compare CBS's yearly editions 2019–2025. Utrecht's buurt boundaries did not change in that period. Some figures, such as the WOZ value, refer to a date before the edition year.",
+      notes3: "CBS leaves out figures for buurten with few residents to protect privacy. Amenity counts are features mapped in OpenStreetMap inside each buurt, as complete as the volunteers who mapped them.",
+      notes4: (b, g) => `Boundaries: ${b}. Data built ${g}. Sources: CBS (CC BY 4.0), PDOK, © OpenStreetMap contributors (ODbL).`,
+      fLead: "Find a buurt that fits you",
+      fSub: "Say what matters to you. Every buurt gets a score from how it ranks on those things compared with the rest of Utrecht.",
+      askLabel: "Describe what you're looking for", askPh: "e.g. We're a couple with a toddler, budget around €450k, we'd like green space and good public transport and don't need a car.",
+      askBtn: "Find matches", stop: "Stop", thinking: "Thinking…", cTitle: "Ask your own AI", cIntro: "Add the Buurt030 connector to Claude or ChatGPT. Your AI can then search, compare and match Utrecht's buurten with these figures, on your own account.", cCopy: "Copy", cCopied: "Copied", cClaude: "Settings → Connectors → Add custom connector, paste the URL.", cChatGPT: "Settings → Apps & Connectors → Advanced → Developer mode, then create a connector with the URL (availability depends on your plan).", cTry: "Then ask, for example: \"Which Utrecht buurten suit a family with a toddler and a €450k budget?\"", cOpenClaude: "Open the Claude version", aiPick: "AI", aiBy: (l, m) => `Answers by ${l} (${m})`,
+      askErr: { not_granted: "Claude wasn't allowed for this page. You can still pick criteria below.",  rate_limited: "Too many requests right now. Try again in a minute.", invalid_json: "The answer couldn't be read. Try rephrasing.", refused: "The AI declined this request. Try rephrasing it.", default: "Something went wrong reaching the AI. Try again." },
+      quick: "Quick picks", criteria: "Your criteria", noCrit: "Pick a quick pick, describe your wish above, or add a criterion.",
+      more: "more", less: "less", remove: "Remove", importance: "Importance", add: "Add a criterion…",
+      budget: "Maximum average home value (WOZ)", budgetHint: "WOZ is the municipality's valuation, roughly comparable to asking prices.",
+      unsupported: (x) => `Not in this data, so not used: ${x}.`,
+      results: "Best matches", score: "score", why: "Strong on", weak: "Weaker on",
+      openProfile: "Open profile", explainBtn: (l) => `Explain the top 5 with ${l}`, explainTitle: "Why these buurten",
+      excluded: (n) => `${n} buurten are left out by your budget or have too little data.`,
+      presets: { family: "Family with kids", budget: "Affordable", green: "Green & playgrounds", carfree: "Car-free life", lively: "Lively", quiet: "Quiet", young: "Students & young", senior: "Older residents", sustain: "Sustainable homes", services: "Shops & GP nearby", rent: "Renting", buy: "Buying" },
+    },
+    nl: {
+      sub: (n, y) => `Utrecht · ${n} buurten · CBS ${y}, PDOK & OpenStreetMap`,
+      find: "Zoek een buurt", searchPh: "Naam of postcode, bijv. 3572", colour: "Kleur kaart op", show: "Toon",
+      level: "Nu", change: "Sinds 2019", changeOff: "Geen jaarreeks voor deze indicator",
+      reset: "Herstel kaart", picking: "Klik op een tweede buurt om te vergelijken",
+      tabProfile: "Profiel", tabFind: "Vind je buurt",
+      residents: "inwoners", postcode: "Postcodegebied",
+      compare: "Vergelijk met andere buurt", changeCmp: "Andere vergelijking", clear: "Wis",
+      stands: "Wat valt op", higher: (p) => `Hoger dan ${p}% van de buurten`, lower: (p) => `Lager dan ${p}% van de buurten`,
+      city: "stad", cityWhole: "Utrecht als geheel", everyOther: "elke andere buurt",
+      similar: "Buurten die hierop lijken", similarHint: "Meest vergelijkbaar profiel over alle indicatoren.",
+      alike: "Lijkt in", differs: "Verschilt het meest in", match: "overeenkomst",
+      trends: "Hoe het veranderde", trendsHint: (a, b) => `${a}–${b}. Rood: deze buurt, gestippeld: Utrecht.`,
+      vsCity: "stad", notPub: "Niet gepubliceerd", latestFrom: (y) => `Meest recente CBS-cijfer is van ${y}`,
+      legendSrc: (s, y) => `${s} · ${y} · vijf even grote groepen buurten`,
+      legendChange: (l, a, b) => `${l}: verandering ${a}–${b}`, legendCity: (v) => `Utrecht: ${v}`,
+      legendScore: "Past bij je wensen", legendScoreSub: "Score 0–100 · donkerder past beter · gearceerd: boven je budget of te weinig cijfers",
+      notes1: (ys, prev) => `Cijfers komen uit CBS Kerncijfers wijken en buurten ${ys}. Het CBS publiceert inkomen, werk, zorg en energie ongeveer een jaar later dan de rest; daar staat ${prev} (gemarkeerd).`,
+      notes2: "Trends vergelijken de jaarlijkse CBS-edities 2019–2025. De buurtgrenzen van Utrecht zijn in die periode niet veranderd. Sommige cijfers, zoals de WOZ-waarde, gaan over een datum vóór het editiejaar.",
+      notes3: "Het CBS laat cijfers weg voor buurten met weinig inwoners, om privacy te beschermen. Voorzieningen zijn objecten in OpenStreetMap binnen elke buurt, zo volledig als vrijwilligers ze hebben ingetekend.",
+      notes4: (b, g) => `Grenzen: ${b}. Data gebouwd op ${g}. Bronnen: CBS (CC BY 4.0), PDOK, © OpenStreetMap-bijdragers (ODbL).`,
+      fLead: "Vind een buurt die bij je past",
+      fSub: "Geef aan wat je belangrijk vindt. Elke buurt krijgt een score op basis van hoe hij daarop scoort vergeleken met de rest van Utrecht.",
+      askLabel: "Beschrijf wat je zoekt", askPh: "bijv. We zijn een stel met een peuter, budget rond €450.000, we willen groen en goed openbaar vervoer en hebben geen auto nodig.",
+      askBtn: "Zoek buurten", stop: "Stop", thinking: "Bezig met nadenken…", cTitle: "Vraag het je eigen AI", cIntro: "Voeg de Buurt030-connector toe aan Claude of ChatGPT. Je AI kan dan met deze cijfers Utrechtse buurten zoeken, vergelijken en matchen, op je eigen account.", cCopy: "Kopieer", cCopied: "Gekopieerd", cClaude: "Instellingen → Connectors → Aangepaste connector toevoegen, plak de URL.", cChatGPT: "Instellingen → Apps & Connectors → Geavanceerd → Ontwikkelaarsmodus, maak dan een connector met de URL (beschikbaarheid hangt af van je abonnement).", cTry: "Vraag dan bijvoorbeeld: \"Welke Utrechtse buurten passen bij een gezin met een peuter en een budget van €450.000?\"", cOpenClaude: "Open de Claude-versie", aiPick: "AI", aiBy: (l, m) => `Antwoorden van ${l} (${m})`,
+      askErr: { not_granted: "Claude is niet toegestaan voor deze pagina. Kies hieronder zelf criteria.",  rate_limited: "Even te veel verzoeken. Probeer het over een minuut opnieuw.", invalid_json: "Het antwoord was niet leesbaar. Formuleer het anders.", refused: "De AI wees dit verzoek af. Formuleer het anders.", default: "De AI was niet bereikbaar. Probeer het opnieuw." },
+      quick: "Snelle keuzes", criteria: "Jouw criteria", noCrit: "Kies een snelle keuze, beschrijf je wens hierboven of voeg een criterium toe.",
+      more: "meer", less: "minder", remove: "Verwijder", importance: "Belang", add: "Criterium toevoegen…",
+      budget: "Maximale gemiddelde WOZ-waarde", budgetHint: "De WOZ-waarde is de taxatie van de gemeente, ongeveer vergelijkbaar met vraagprijzen.",
+      unsupported: (x) => `Niet in deze cijfers, dus niet meegenomen: ${x}.`,
+      results: "Beste matches", score: "score", why: "Sterk in", weak: "Zwakker in",
+      openProfile: "Open profiel", explainBtn: (l) => `Laat ${l} de top 5 uitleggen`, explainTitle: "Waarom deze buurten",
+      excluded: (n) => `${n} buurten vallen af door je budget of hebben te weinig cijfers.`,
+      presets: { family: "Gezin met kinderen", budget: "Betaalbaar", green: "Groen & speeltuinen", carfree: "Zonder auto", lively: "Levendig", quiet: "Rustig", young: "Studenten & jong", senior: "Ouderen", sustain: "Duurzame woningen", services: "Winkels & huisarts dichtbij", rent: "Huren", buy: "Kopen" },
+    },
+  };
+  const PRESETS = {
+    family:   [["families", "high", 3], ["kids", "high", 2], ["o_playkids", "high", 2], ["d_daycare", "low", 1], ["d_school", "low", 1]],
+    budget:   [["woz", "low", 3]],
+    green:    [["o_park", "high", 2], ["o_play", "high", 1], ["density", "low", 1], ["water", "high", 1]],
+    carfree:  [["o_stops", "high", 3], ["cars", "low", 2], ["d_super", "low", 1]],
+    lively:   [["o_food", "high", 3], ["density", "high", 1], ["young", "high", 1]],
+    quiet:    [["density", "low", 2], ["o_food", "low", 1], ["carsdens", "low", 1]],
+    young:    [["young", "high", 3], ["single", "high", 1], ["privrent", "high", 1], ["o_food", "high", 1]],
+    senior:   [["seniors", "high", 2], ["d_gp", "low", 2], ["o_health", "high", 1], ["d_super", "low", 1]],
+    sustain:  [["gasfree", "high", 2], ["solar", "high", 2]],
+    services: [["d_gp", "low", 2], ["d_super", "low", 2], ["d_school", "low", 1]],
+    rent:     [["privrent", "high", 2], ["social", "high", 1]],
+    buy:      [["owner", "high", 2]],
+  };
+  // Counts and sizes say where a buurt is big, not what it is like.
+  const NOT_DISTINCTIVE = new Set(["pop", "homes", "area", "o_food", "o_super", "o_play", "o_park", "o_sport", "o_health", "o_school", "o_library"]);
+  // Leave these out of matching and similarity: they describe a buurt's size or mix up several things.
+  const NOT_FOR_SIMILARITY = new Set([...NOT_DISTINCTIVE, "births", "schools3"]);
+
+  // The MCP connector is served by this site at /mcp (Firebase function "mcp").
+  const CONNECTOR_URL = /^https?:$/.test(location.protocol) ? location.origin + "/mcp" : "https://buurt030.web.app/mcp";
+  // Public link to the claude.ai version of this page (set when it is shared), or "".
+  const CLAUDE_APP_URL = "";
+
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage unavailable */ } },
+  };
+
+  // ------------------------------------------------------------ state
+  let D, IND, byCode, latestYear, years;
+  let lang = store.get("bk.lang") || ((navigator.language || "").toLowerCase().startsWith("nl") ? "nl" : "en");
+  let cur = store.get("bk.ind") || "woz";
+  let mode = "level";               // level | change
+  let tab = store.get("bk.tab") === "find" ? "find" : "profile";
+  let sel = null, cmp = null, picking = false;
+  let criteria = [];                // [{key, dir: "high"|"low", w: 1..3}]
+  let budget = null;                // max WOZ in euro, or null
+  let unsupported = [];
+  let scores = null;                // Map code -> {score, parts}
+  let explainText = "", explainState = "idle", askState = "idle", askError = "";
+  let providers = [], aiId = store.get("bk.ai"), askCtl = null, explainCtl = null, lastWish = "";
+  let paths, path, statsCache = {};
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const T = () => STR[lang];
+  const wijkShort = (n) => n.replace(/^Wijk \d+\s*/, "");
+  const L = (ind) => (lang === "nl" ? ind.label_nl : ind.label);
+  const U = (ind) => (lang === "nl" ? ind.unit_nl : ind.unit);
+  const G = (ind) => (lang === "nl" ? ind.group_nl : ind.group);
+  const DSC = (ind) => (lang === "nl" ? ind.desc_nl : ind.desc) || "";
+  const showUnit = (ind) => U(ind) && ind.fmt !== "pct" && ind.fmt !== "eur";
+
+  const nf = (min, max) => new Intl.NumberFormat(lang === "nl" ? "nl-NL" : "en-GB", { minimumFractionDigits: min, maximumFractionDigits: max });
+  function fmt(ind, v) {
+    if (v == null) return null;
+    switch (ind.fmt) {
+      case "pct": return (v < 10 ? nf(1, 1).format(v) : nf(0, 0).format(v)) + "%";
+      case "eur": return "€" + nf(0, 0).format(Math.round(v / 100) * 100);
+      case "dec1": return nf(1, 1).format(v);
+      case "dec2": return nf(2, 2).format(v);
+      default: return nf(0, 0).format(v);
+    }
+  }
+  const sign = (v, s) => (v > 0 ? "+" : v < 0 ? "−" : "±") + s;
+  function fmtChange(ind, d) {
+    if (d == null) return null;
+    const a = Math.abs(d);
+    if (ind.trend === "rel") return sign(d, nf(0, a < 10 ? 1 : 0).format(a) + "%");
+    if (ind.trend === "pp") return sign(d, nf(1, 1).format(a) + (lang === "nl" ? " %-pt" : " pp"));
+    return sign(d, nf(1, 1).format(a));
+  }
+
+  const value = (b, k) => (b && b.v[k] ? b.v[k][0] : null);
+  const year = (b, k) => (b && b.v[k] ? b.v[k][1] : null);
+  const cityVal = (k) => (D.city[k] ? D.city[k][0] : null);
+  function changeOf(arr, ind) {
+    if (!arr) return null;
+    const i0 = arr.findIndex((v) => v != null);
+    let i1 = arr.length - 1; while (i1 >= 0 && arr[i1] == null) i1--;
+    if (i0 < 0 || i1 <= i0) return null;
+    const a = arr[i0], b = arr[i1];
+    if (ind.trend === "rel") return a ? (b / a - 1) * 100 : null;
+    return b - a;
+  }
+  const changeVal = (b, k) => changeOf(b.s[k], IND[k]);
+
+  function sortedVals(id, getter) {
+    if (statsCache[id]) return statsCache[id];
+    return (statsCache[id] = D.buurten.map(getter).filter((v) => v != null).sort(d3.ascending));
+  }
+  const levelVals = (k) => sortedVals("v:" + k, (b) => value(b, k));
+  function pctRank(vals, v) {
+    const below = d3.bisectLeft(vals, v), upto = d3.bisectRight(vals, v);
+    return (below + (upto - below) / 2) / vals.length;
+  }
+
+  // ------------------------------------------------------------ map
+  const svg = d3.select("#map");
+  const zoomg = d3.select("#zoomg");
+  const zoom = d3.zoom().scaleExtent([1, 10]).on("zoom", (e) => zoomg.attr("transform", e.transform));
+  svg.call(zoom).on("dblclick.zoom", null);
+  $("reset").onclick = () => svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity);
+  const feature = (geom) => ({ type: "Feature", geometry: { type: "MultiPolygon", coordinates: geom } });
+
+  function drawMap() {
+    const { width, height } = $("map").getBoundingClientRect();
+    if (!width || !height) return;
+    const fc = { type: "FeatureCollection", features: D.buurten.map((b) => feature(b.geom)) };
+    const bottomPad = height > 500 ? 100 : 80;
+    path = d3.geoPath(d3.geoIdentity().reflectY(true).fitExtent([[16, 16], [width - 16, height - bottomPad]], fc));
+    paths = d3.select("#buurten").selectAll("path").data(D.buurten, (b) => b.code)
+      .join("path").attr("d", (b) => path(feature(b.geom)))
+      .on("mousemove", showTip).on("mouseleave", () => ($("tip").hidden = true))
+      .on("click", (e, b) => choose(b));
+    d3.select("#wijken").selectAll("path").data(D.wijken).join("path")
+      .attr("class", "wijk").attr("d", (w) => path(feature(w.geom)));
+    d3.select("#labels").selectAll("text").data(D.wijken).join("text")
+      .attr("class", "wlabel")
+      .attr("transform", (w) => { const [x, y] = path.centroid(feature(w.geom)); return `translate(${x},${y})`; })
+      .text((w) => wijkShort(w.name));
+    colour(); highlight();
+  }
+
+  // What the map shows right now: [getter, sorted values, palette prefix]
+  function mapSpec() {
+    if (tab === "find" && scores) {
+      const get = (b) => scores.get(b.code)?.score ?? null;
+      return { get, vals: D.buurten.map(get).filter((v) => v != null).sort(d3.ascending), pal: "m", kind: "score" };
+    }
+    if (mode === "change" && IND[cur].trend) {
+      const get = (b) => changeVal(b, cur);
+      return { get, vals: sortedVals("c:" + cur, get), pal: "c", kind: "change" };
+    }
+    const get = (b) => value(b, cur);
+    return { get, vals: levelVals(cur), pal: "q", kind: "level" };
+  }
+
+  function colour() {
+    if (!paths) return;
+    const spec = mapSpec();
+    const q = spec.kind === "score"
+      ? (v) => Math.min(4, Math.floor(v / 20))
+      : d3.scaleQuantile().domain(spec.vals).range([0, 1, 2, 3, 4]);
+    paths.attr("class", (b) => { const v = spec.get(b); return "buurt " + (v == null ? "nd" : spec.pal + q(v)); });
+    legend(spec, q);
+    ranks();
+  }
+
+  function ranks() {
+    const g = d3.select("#ranks");
+    const top = tab === "find" && scores ? topResults(5) : [];
+    const items = top.map((r, i) => ({ b: byCode[r.code], i }));
+    const sel_ = g.selectAll("g").data(items, (d) => d.b.code).join((en) => { const gg = en.append("g"); gg.append("circle").attr("class", "rankdot").attr("r", 9); gg.append("text").attr("class", "rank"); return gg; });
+    sel_.attr("transform", (d) => { const [x, y] = path.centroid(feature(d.b.geom)); return `translate(${x},${y})`; });
+    sel_.select("text").text((d) => d.i + 1);
+  }
+
+  function highlight() {
+    if (!path) return;
+    const g = d3.select("#hl");
+    g.selectAll("*").remove();
+    if (cmp) g.append("path").attr("class", "hl cmp").attr("d", path(feature(cmp.geom)));
+    if (sel) g.append("path").attr("class", "hl sel").attr("d", path(feature(sel.geom)));
+  }
+
+  function showTip(e, b) {
+    const spec = mapSpec(), ind = IND[cur], v = spec.get(b), tip = $("tip");
+    const box = $("map").getBoundingClientRect();
+    let txt;
+    if (v == null) txt = T().notPub;
+    else if (spec.kind === "score") txt = `${T().score} ${Math.round(v)}`;
+    else if (spec.kind === "change") txt = fmtChange(ind, v);
+    else txt = fmt(ind, v) + (showUnit(ind) ? " " + U(ind) : "");
+    tip.innerHTML = `<b>${esc(b.name)}</b><span>${esc(txt)}</span>`;
+    tip.hidden = false;
+    let x = e.clientX - box.left + 14, y = e.clientY - box.top + 14;
+    if (x + tip.offsetWidth > box.width - 8) x = e.clientX - box.left - tip.offsetWidth - 14;
+    if (y + tip.offsetHeight > box.height - 8) y = e.clientY - box.top - tip.offsetHeight - 14;
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+  }
+
+  function legend(spec, q) {
+    const ind = IND[cur], t = T();
+    const nd = `<span class="sw"><i class="ndsw"></i>${esc(t.notPub)}</span>`;
+    if (spec.kind === "score") {
+      const sw = [0, 1, 2, 3, 4].map((i) => `<span class="sw"><i style="background:var(--m${i})"></i>${i * 20}–${i * 20 + 20}</span>`).join("");
+      $("legend").innerHTML = `<div class="lt">${esc(t.legendScore)}</div><div class="swatches">${sw}</div><div class="ls">${esc(t.legendScoreSub)}</div>`;
+      return;
+    }
+    const vals = spec.vals;
+    if (!vals.length) { $("legend").innerHTML = `<div class="lt">${esc(L(ind))}</div><div class="swatches">${nd}</div>`; return; }
+    const cuts = [vals[0], ...q.quantiles(), vals[vals.length - 1]];
+    const f = spec.kind === "change" ? (v) => fmtChange(ind, v) : (v) => fmt(ind, v);
+    const sw = [0, 1, 2, 3, 4].map((i) => `<span class="sw"><i style="background:var(--${spec.pal}${i})"></i>${esc(f(cuts[i]))} … ${esc(f(cuts[i + 1]))}</span>`).join("");
+    let title, sub;
+    if (spec.kind === "change") {
+      title = t.legendChange(L(ind), years[0], years[years.length - 1]);
+      sub = t.legendCity(fmtChange(ind, changeOf(D.city_series[cur], ind)) ?? "–") + " · " + ind.source;
+    } else {
+      const ys = [...new Set(D.buurten.map((b) => year(b, cur)).filter(Boolean))].join(", ");
+      title = L(ind) + (showUnit(ind) ? ` (${U(ind)})` : "");
+      sub = t.legendSrc(ind.source, ys);
+    }
+    $("legend").innerHTML = `<div class="lt">${esc(title)}</div><div class="swatches">${sw}${nd}</div><div class="ls">${esc(sub)}</div>`;
+  }
+
+  // ------------------------------------------------------------ similarity & matching
+  const featureKeys = () => D.indicators.filter((i) => !NOT_FOR_SIMILARITY.has(i.key)).map((i) => i.key);
+
+  function similar(b, n = 4) {
+    const keys = featureKeys();
+    const out = [];
+    for (const o of D.buurten) {
+      if (o === b) continue;
+      const diffs = [];
+      for (const k of keys) {
+        const a = value(b, k), c = value(o, k);
+        if (a == null || c == null) continue;
+        const vals = levelVals(k);
+        diffs.push({ k, d: pctRank(vals, c) - pctRank(vals, a), pa: pctRank(vals, a) });
+      }
+      if (diffs.length < 15) continue;
+      const rms = Math.sqrt(d3.mean(diffs, (x) => x.d * x.d));
+      out.push({ b: o, sim: Math.max(0, Math.round(100 * (1 - rms * 2))), diffs });
+    }
+    return out.sort((x, y) => y.sim - x.sim).slice(0, n).map((r) => {
+      // "Alike in": characteristics that are distinctive for this buurt and shared by the other
+      const alike = r.diffs.filter((x) => Math.abs(x.d) < 0.08).sort((x, y) => Math.abs(y.pa - 0.5) - Math.abs(x.pa - 0.5)).slice(0, 3);
+      const diff = [...r.diffs].sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 2);
+      return { ...r, alike, diff };
+    });
+  }
+
+  function computeScores() {
+    if (!criteria.length && budget == null) { scores = null; return; }
+    const total = d3.sum(criteria, (c) => c.w) || 1;
+    scores = new Map();
+    for (const b of D.buurten) {
+      const woz = value(b, "woz");
+      if (budget != null && (woz == null || woz > budget)) continue;
+      const pop = value(b, "pop");
+      if (pop == null || pop < 200) continue; // business parks and empty areas aren't places to live
+      let have = 0, acc = 0;
+      const parts = [];
+      for (const c of criteria) {
+        const v = value(b, c.key);
+        if (v == null) continue;
+        let p = pctRank(levelVals(c.key), v);
+        if (c.dir === "low") p = 1 - p;
+        acc += p * c.w; have += c.w;
+        parts.push({ key: c.key, p, w: c.w });
+      }
+      if (criteria.length && have / total < 0.5) continue;
+      const base = criteria.length ? acc / have : 0.5;
+      const cover = criteria.length ? Math.sqrt(have / total) : 1;
+      scores.set(b.code, { score: Math.round(base * cover * 100), parts, code: b.code });
+    }
+  }
+  const topResults = (n) => [...scores.values()].sort((a, b) => b.score - a.score).slice(0, n);
+
+  function addCriteria(list) {
+    for (const [key, dir, w] of list) {
+      if (!IND[key]) continue;
+      const ex = criteria.find((c) => c.key === key);
+      if (ex) { ex.w = Math.max(ex.w, w); ex.dir = dir; } else criteria.push({ key, dir, w });
+    }
+  }
+  function presetActive(id) {
+    return PRESETS[id].every(([k, d]) => criteria.some((c) => c.key === k && c.dir === d));
+  }
+
+  // ------------------------------------------------------------ Claude
+  const LANG_NAME = { en: "English", nl: "Dutch" };
+
+  // In-page AI. Only available when the page runs as a claude.ai artifact, where
+  // "sample" answers on the viewer's own Claude account. Everywhere else people
+  // use the Buurt030 connector from their own Claude or ChatGPT (see connectorHTML).
+  const ai = () => providers.find((p) => p.id === aiId) || providers[0] || null;
+  const HARD = ["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"];
+
+  function parseJSON(text) {
+    const tryParse = (t) => { try { return JSON.parse(t); } catch { return undefined; } };
+    let v = tryParse(text.trim());
+    if (v === undefined) { const m = text.match(/```(?:json)?\s*([\s\S]*?)```/); if (m) v = tryParse(m[1]); }
+    if (v === undefined) { const a = text.search(/[\[{]/), b = Math.max(text.lastIndexOf("}"), text.lastIndexOf("]")); if (a >= 0 && b > a) v = tryParse(text.slice(a, b + 1)); }
+    if (v === undefined) throw { code: "invalid_json", text };
+    return v;
+  }
+
+  function claudeProvider(sample) {
+    return {
+      id: "claude", label: "Claude", model: "claude.ai",
+      json: (prompt, { signal }) => sample.json(prompt, { modelTier: "quick", signal }),
+      text: async (prompt, { signal, onText }) => (await sample(prompt, { modelTier: "quick", signal, onText })).text,
+    };
+  }
+  function addProvider(p) {
+    if (providers.some((x) => x.id === p.id)) return;
+    providers.push(p);
+    if (tab === "find") renderPanel(false);
+  }
+  function dropProvider(id) {
+    providers = providers.filter((p) => p.id !== id);
+  }
+  function detectProviders() {
+    if (window.claude?.use) {
+      window.claude.use("sample").then((s) => { if (s) addProvider(claudeProvider(s)); }).catch(() => {});
+    }
+  }
+
+  function catalog() {
+    return D.indicators.map((i) => {
+      const cv = cityVal(i.key);
+      return `${i.key} | ${i.label}${i.unit && i.fmt !== "pct" && i.fmt !== "eur" ? " (" + i.unit + ")" : ""} | Utrecht: ${cv == null ? "n/a" : fmtPlain(i, cv)}`;
+    }).join("\n");
+  }
+  function fmtPlain(ind, v) { const s = lang; lang = "en"; const r = fmt(ind, v); lang = s; return r; }
+
+  async function ask(text) {
+    const P = ai();
+    if (!P || !text.trim()) return;
+    askCtl?.abort(); askCtl = new AbortController();
+    askState = "busy"; askError = ""; renderPanel(false);
+    const prompt = `You help people choose a neighbourhood (buurt) in Utrecht, the Netherlands. Turn the person's wish into scoring criteria over the indicators below. Each buurt is scored by how it ranks on each criterion compared with Utrecht's other buurten.
+
+Indicators (key | meaning | Utrecht average):
+${catalog()}
+
+Reply with only a JSON object, no other text:
+{"criteria":[{"key":"families","direction":"high","weight":3}],"budget_max_woz":450000,"unsupported":["short phrase"],"summary":"one sentence"}
+
+Rules:
+- Use only keys from the list. "direction" is "high" (more is better) or "low" (less is better). "weight" is 1 (nice to have), 2 (important) or 3 (very important). At most 8 criteria.
+- Translate everyday wishes into indicators, e.g. a toddler -> families, kids, o_playkids, d_daycare; no car -> o_stops high, cars low; lively -> o_food high.
+- "budget_max_woz" is a number in euros only if the person names a budget or price limit for buying; otherwise null. WOZ is the municipal home valuation, roughly comparable to asking prices.
+- "unsupported": wishes this data cannot measure (for example quiet streets, safety, noise, specific schools), in ${LANG_NAME[lang]}. Empty array if none.
+- Never use ethnicity, origin, religion or nationality as criteria, even if asked.
+- "summary": one short sentence in ${LANG_NAME[lang]} saying what you will look for.
+
+The person's wish:
+"""${text.slice(0, 2000)}"""`;
+    try {
+      const res = await P.json(prompt, { signal: askCtl.signal });
+      const crit = Array.isArray(res?.criteria) ? res.criteria : [];
+      criteria = [];
+      addCriteria(crit.slice(0, 8)
+        .filter((c) => c && IND[c.key] && (c.direction === "high" || c.direction === "low"))
+        .map((c) => [c.key, c.direction, Math.min(3, Math.max(1, Math.round(Number(c.weight) || 1)))]));
+      const bmax = Number(res?.budget_max_woz);
+      budget = Number.isFinite(bmax) && bmax > 100000 ? Math.min(2000000, Math.round(bmax / 10000) * 10000) : null;
+      unsupported = Array.isArray(res?.unsupported) ? res.unsupported.filter((x) => typeof x === "string").slice(0, 6) : [];
+      askState = "done"; askError = typeof res?.summary === "string" ? res.summary : "";
+      lastWish = text;
+      explainText = ""; explainState = "idle";
+      update();
+      explain();
+    } catch (e) {
+      askState = e?.code === "cancelled" ? "idle" : "error";
+      askError = e?.code === "cancelled" ? "" : (T().askErr[e?.code] || T().askErr.default);
+      if (HARD.includes(e?.code)) dropProvider(P.id);
+      renderPanel(false);
+    }
+  }
+
+  async function explain() {
+    const P = ai();
+    if (!P || !scores) return;
+    const top = topResults(5);
+    if (!top.length) return;
+    explainCtl?.abort(); explainCtl = new AbortController();
+    explainState = "busy"; explainText = ""; renderPanel(false);
+    const keys = criteria.map((c) => c.key);
+    const showKeys = [...new Set([...keys, "woz", "pop"])].filter((k) => IND[k]);
+    const line = (vals) => showKeys.map((k) => `${IND[k].label}: ${vals(k) ?? "n/a"}`).join("; ");
+    const wish = lastWish || criteria.map((c) => `${IND[c.key].label} (${c.dir === "high" ? "more" : "less"}, weight ${c.w})`).join(", ");
+    const prompt = `Explain in ${LANG_NAME[lang]} why each of these Utrecht buurten fits the person's wish. Use ONLY the figures given below and do not add facts about the places. For each buurt write 2 sentences: what fits best, and one trade-off. Plain, friendly language for residents. Do not rank people or groups.
+
+Format exactly, nothing else:
+## <buurt name>
+<two sentences>
+
+Wish: ${wish.slice(0, 1500)}
+${budget != null ? `Budget: average home value (WOZ) up to €${budget}\n` : ""}Utrecht averages: ${line((k) => fmtPlain(IND[k], cityVal(k)))}
+
+Buurten (best match first):
+${top.map((r) => { const b = byCode[r.code]; return `- ${b.name} (${wijkShort(b.wijk)}), match score ${r.score}/100: ${line((k) => fmtPlain(IND[k], value(b, k)))}`; }).join("\n")}`;
+    try {
+      await P.text(prompt, { signal: explainCtl.signal, onText: ({ text }) => { explainText = text; paintExplain(); } });
+      explainState = "done";
+    } catch (e) {
+      explainText = e?.text ?? explainText;
+      explainState = e?.code === "cancelled" ? "idle" : "error";
+      if (e?.code === "refused") explainText = "";
+      if (HARD.includes(e?.code)) dropProvider(P.id);
+    }
+    renderPanel(false);
+  }
+
+  function paintExplain() {
+    const el = $("explain");
+    if (!el) return;
+    el.textContent = "";
+    for (const raw of explainText.split("\n")) {
+      const line = raw.trim();
+      if (!line) continue;
+      const node = document.createElement(line.startsWith("##") ? "h4" : "p");
+      node.textContent = line.replace(/^#+\s*/, "");
+      el.append(node);
+    }
+  }
+
+  // ------------------------------------------------------------ panel
+  function choose(b) {
+    if (picking) {
+      picking = false; $("picking").hidden = true;
+      if (b !== sel) cmp = b;
+    } else {
+      sel = b;
+      if (cmp === b) cmp = null;
+      try { history.replaceState(null, "", "#" + b.code); } catch { /* sandboxed */ }
+    }
+    highlight(); renderPanel();
+  }
+
+  function setIndicator(k, m) {
+    cur = k; $("ind").value = k; store.set("bk.ind", k);
+    if (m) mode = m;
+    if (!IND[cur].trend) mode = "level";
+    if (tab === "find") setTab("profile"); else { syncControls(); colour(); renderPanel(false); }
+  }
+  function setTab(t) {
+    tab = t; store.set("bk.tab", t);
+    $("t-profile").setAttribute("aria-selected", t === "profile");
+    $("t-find").setAttribute("aria-selected", t === "find");
+    syncControls(); colour(); renderPanel();
+  }
+  function update() { computeScores(); colour(); renderPanel(false); }
+
+  function strip(k) {
+    const vals = levelVals(k);
+    if (!vals.length) return "";
+    const min = vals[0], max = vals[vals.length - 1];
+    const x = (v) => (max === min ? 150 : 2 + ((v - min) / (max - min)) * 296);
+    let marks = `<rect class="base" x="0" y="7.5" width="300" height="1"></rect>` +
+      vals.map((v) => `<rect class="t" x="${x(v) - 0.6}" y="4" width="1.2" height="8"></rect>`).join("");
+    const city = cityVal(k);
+    if (city != null && city >= min && city <= max) marks += `<rect class="city" x="${x(city) - 1}" y="1" width="2" height="14"></rect>`;
+    const cv = value(cmp, k); if (cv != null) marks += `<rect class="k" x="${x(cv) - 1.5}" y="2" width="3" height="12"></rect>`;
+    const sv = value(sel, k); if (sv != null) marks += `<rect class="s" x="${x(sv) - 2}" y="0" width="4" height="16"></rect>`;
+    return `<svg class="strip" viewBox="0 0 300 16" preserveAspectRatio="none" aria-hidden="true">${marks}</svg>`;
+  }
+
+  function sparkline(bs, cs) {
+    const all = [...(bs || []), ...(cs || [])].filter((v) => v != null);
+    if (all.length < 2) return "";
+    const lo = Math.min(...all), hi = Math.max(...all), n = years.length;
+    const X = (i) => 2 + (i / (n - 1)) * 92, Y = (v) => (hi === lo ? 14 : 25 - ((v - lo) / (hi - lo)) * 22);
+    const line = (arr) => { let d = "", pen = false; arr.forEach((v, i) => { if (v == null) { pen = false; return; } d += (pen ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1); pen = true; }); return d; };
+    let last = (bs || []).length - 1; while (last >= 0 && bs[last] == null) last--;
+    return `<svg viewBox="0 0 96 28" aria-hidden="true">${cs ? `<path class="spk-c" d="${line(cs)}"></path>` : ""}${bs ? `<path class="spk-b" d="${line(bs)}"></path>` : ""}${last >= 0 ? `<circle class="spk-e" cx="${X(last)}" cy="${Y(bs[last])}" r="2.4"></circle>` : ""}</svg>`;
+  }
+
+  function renderPanel(scrollTop = true) {
+    $("t-profile").textContent = T().tabProfile;
+    $("t-find").textContent = T().tabFind;
+    const P = $("pbody");
+    P.innerHTML = tab === "find" ? finderHTML() : profileHTML();
+    wirePanel(P);
+    if (tab === "find") paintExplain();
+    if (scrollTop) $("panel").scrollTop = 0;
+  }
+
+  function profileHTML() {
+    const t = T();
+    if (!sel) return `<p class="eyebrow">Utrecht</p><h2 class="pname">${esc(t.find)}</h2>`;
+    const pop = value(sel, "pop"), area = value(sel, "area");
+
+    const stand = [];
+    for (const ind of D.indicators) {
+      if (NOT_DISTINCTIVE.has(ind.key)) continue;
+      const v = value(sel, ind.key);
+      if (v == null) continue;
+      const vals = levelVals(ind.key);
+      if (vals.length < 40) continue;
+      const p = pctRank(vals, v);
+      stand.push({ ind, v, p, s: Math.abs(p - 0.5) });
+    }
+    const so = stand.sort((a, b) => b.s - a.s).slice(0, 4).map(({ ind, v, p }) => `
+      <button type="button" class="scard" data-k="${ind.key}">
+        <span class="sl">${esc(L(ind))}</span>
+        <span class="sv">${esc(fmt(ind, v))}</span>
+        <span class="sr">${esc(p >= 0.5 ? t.higher(Math.min(99, Math.round(p * 100))) : t.lower(Math.min(99, Math.round((1 - p) * 100))))} · ${esc(t.city)} ${esc(fmt(ind, cityVal(ind.key)) ?? "–")}</span>
+      </button>`).join("");
+
+    const sims = similar(sel).map((r) => `
+      <button type="button" class="li" data-go="${r.b.code}">
+        <span class="ln">${esc(r.b.name)} <span class="lw">· ${esc(wijkShort(r.b.wijk))}</span></span>
+        <span class="lnum">${r.sim}% ${esc(t.match)}</span>
+        <span class="lx">${r.alike.length ? `${esc(t.alike)}: <b>${r.alike.map((x) => esc(L(IND[x.k]).toLowerCase())).join(", ")}</b>. ` : ""}${esc(t.differs)}: ${r.diff.map((x) => esc(L(IND[x.k]).toLowerCase())).join(", ")}.</span>
+      </button>`).join("");
+
+    const trendInds = D.indicators.filter((i) => i.trend && sel.s[i.key]);
+    const trends = trendInds.map((ind) => {
+      const s = sel.s[ind.key], i0 = s.findIndex((v) => v != null);
+      let i1 = s.length - 1; while (i1 >= 0 && s[i1] == null) i1--;
+      const d = changeOf(s, ind), dc = changeOf(D.city_series[ind.key], ind);
+      return `<button type="button" class="trend${ind.key === cur && mode === "change" ? " active" : ""}" data-k="${ind.key}" data-m="change">
+          <span class="tl">${esc(L(ind))}<span class="tv">${esc(fmt(ind, s[i0]))} → ${esc(fmt(ind, s[i1]))}</span></span>
+          ${sparkline(s, D.city_series[ind.key])}
+          <span class="delta">${esc(fmtChange(ind, d) ?? "–")}<small>${esc(t.vsCity)} ${esc(fmtChange(ind, dc) ?? "–")}</small></span>
+        </button>`;
+    }).join("");
+
+    const groups = d3.groups(D.indicators, (i) => i.group).map(([, inds]) => {
+      const rows = inds.map((ind) => {
+        const v = value(sel, ind.key), y = year(sel, ind.key), c = value(cmp, ind.key), city = cityVal(ind.key);
+        const sub = [showUnit(ind) ? U(ind) : "", city != null ? `${t.city} ${fmt(ind, city)}` : ""].filter(Boolean).join(" · ");
+        const yr = typeof y === "number" && y < latestYear ? `<span class="yr" title="${esc(t.latestFrom(y))}">${y}</span>` : "";
+        const main = v == null ? `<span class="na">${esc(t.notPub)}</span>` : esc(fmt(ind, v)) + yr;
+        const second = cmp ? `<span class="c2" title="${esc(cmp.name)}">${c == null ? "–" : esc(fmt(ind, c))}</span>` : "";
+        return `<button type="button" class="row${ind.key === cur && mode === "level" ? " active" : ""}" data-k="${ind.key}" data-m="level" title="${esc(DSC(ind))}">
+            <span class="rl">${esc(L(ind))}<span class="ru">${esc(sub)}</span></span>
+            <span class="rv">${main}${second}</span>
+            ${strip(ind.key)}
+          </button>`;
+      }).join("");
+      return `<section class="group"><h3>${esc(G(inds[0]))}</h3>${rows}</section>`;
+    }).join("");
+
+    return `
+      <p class="eyebrow">${esc(wijkShort(sel.wijk))} · ${esc(sel.code)}</p>
+      <h2 class="pname">${esc(sel.name)}</h2>
+      <div class="pmeta">
+        <span><b>${pop != null ? fmt(IND.pop, pop) : "–"}</b> ${esc(t.residents)}</span>
+        ${area != null ? `<span><b>${fmt(IND.area, area)}</b> ha</span>` : ""}
+        ${sel.postcode ? `<span>${esc(t.postcode)} <b>${esc(sel.postcode)}</b></span>` : ""}
+      </div>
+      <div class="pactions">
+        <button type="button" class="btn${picking ? " on" : ""}" id="cmpbtn">${esc(cmp ? t.changeCmp : t.compare)}</button>
+        ${cmp ? `<span class="cmpchip"><i></i>${esc(cmp.name)}</span><button type="button" class="btn" id="cmpclear">${esc(t.clear)}</button>` : ""}
+      </div>
+      ${so ? `<section class="sec"><h3>${esc(t.stands)}</h3><div class="standgrid">${so}</div></section>` : ""}
+      ${sims ? `<section class="sec"><h3>${esc(t.similar)}</h3><p class="hint">${esc(t.similarHint)}</p><div class="list">${sims}</div></section>` : ""}
+      ${trends ? `<section class="sec"><h3>${esc(t.trends)}</h3><p class="hint">${esc(t.trendsHint(years[0], years[years.length - 1]))}</p><div class="list">${trends}</div></section>` : ""}
+      <div class="keyline">
+        <span><i style="background:var(--accent)"></i>${esc(sel.name)}</span>
+        ${cmp ? `<span><i style="background:var(--compare)"></i>${esc(cmp.name)}</span>` : ""}
+        <span><i style="background:var(--ink)"></i>${esc(t.cityWhole)}</span>
+        <span><i style="background:var(--muted);opacity:.5;width:1px"></i>${esc(t.everyOther)}</span>
+      </div>
+      ${groups}
+      <div class="notes">
+        <p>${esc(t.notes1(D.meta.current_years.slice().reverse().join(" & "), latestYear - 1))}</p>
+        <p>${esc(t.notes2)}</p>
+        <p>${esc(t.notes3)}</p>
+        <p>${esc(t.notes4(D.meta.boundaries, D.meta.generated))}</p>
+      </div>`;
+  }
+
+  function finderHTML() {
+    const t = T();
+    const P = ai();
+    const picker = providers.length > 1
+      ? `<div class="askrow"><label for="aipick" class="status">${esc(t.aiPick)}</label><select id="aipick" class="aipick">${providers.map((p) => `<option value="${esc(p.id)}" ${p === P ? "selected" : ""}>${esc(p.label)} · ${esc(p.model)}</option>`).join("")}</select></div>`
+      : "";
+    const aiBox = P
+      ? `<div class="askbox">
+          <label for="ask">${esc(t.askLabel)}</label>
+          <textarea id="ask" placeholder="${esc(t.askPh)}">${esc(lastWish)}</textarea>
+          <div class="askrow">
+            <button type="button" class="btn primary" id="askbtn" ${askState === "busy" ? "disabled" : ""}>${esc(t.askBtn)}</button>
+            ${askState === "busy" ? `<button type="button" class="btn" id="askstop">${esc(t.stop)}</button><span class="status">${esc(t.thinking)}</span>` : ""}
+            ${askState === "error" ? `<span class="status err">${esc(askError)}</span>` : ""}
+            ${askState === "done" && askError ? `<span class="status">${esc(askError)}</span>` : ""}
+          </div>
+          ${picker || `<span class="status">${esc(t.aiBy(P.label, P.model))}</span>`}
+        </div>`
+      : connectorHTML(t);
+
+    const chips = Object.keys(PRESETS).map((id) =>
+      `<button type="button" class="chip" data-preset="${id}" aria-pressed="${presetActive(id)}">${esc(t.presets[id])}</button>`).join("");
+
+    const crits = criteria.map((c, i) => {
+      const ind = IND[c.key];
+      return `<div class="crit">
+          <span class="cn">${esc(L(ind))}<small>${esc(G(ind))}</small></span>
+          <button type="button" class="dirbtn" data-dir="${i}" title="${esc(c.dir === "high" ? t.more : t.less)}">${c.dir === "high" ? "↑ " + esc(t.more) : "↓ " + esc(t.less)}</button>
+          <span class="wts" role="group" aria-label="${esc(t.importance)}">${[1, 2, 3].map((w) => `<button type="button" class="${w <= c.w ? "f" : ""}" data-w="${i}:${w}" aria-label="${esc(t.importance)} ${w}"></button>`).join("")}</span>
+          <button type="button" class="xbtn" data-x="${i}" aria-label="${esc(t.remove)}">✕</button>
+        </div>`;
+    }).join("");
+    const addOpts = d3.groups(D.indicators.filter((i) => !criteria.some((c) => c.key === i.key) && !["pop", "homes", "area"].includes(i.key)), (i) => G(i))
+      .map(([g, inds]) => `<optgroup label="${esc(g)}">${inds.map((i) => `<option value="${i.key}">${esc(L(i))}</option>`).join("")}</optgroup>`).join("");
+
+    const wozVals = levelVals("woz");
+    const bMin = Math.floor(wozVals[0] / 10000) * 10000, bMax = Math.ceil(wozVals[wozVals.length - 1] / 10000) * 10000;
+    const bVal = budget ?? bMax;
+
+    let results = "";
+    if (scores) {
+      const top = topResults(10);
+      const left = D.buurten.length - scores.size;
+      results = `<section class="sec"><h3>${esc(t.results)}</h3>
+        ${top.length ? `<div class="list">${top.map((r, i) => {
+          const b = byCode[r.code];
+          const sorted = [...r.parts].sort((a, c) => c.p * c.w - a.p * a.w);
+          const strong = sorted.filter((p) => p.p >= 0.6).slice(0, 3), weak = [...r.parts].sort((a, c) => a.p - c.p).filter((p) => p.p < 0.4).slice(0, 2);
+          return `<button type="button" class="li${sel === b ? " on" : ""}" data-pick="${b.code}">
+              <span class="ln">${i + 1}. ${esc(b.name)} <span class="lw">· ${esc(wijkShort(b.wijk))}${value(b, "woz") ? " · " + esc(fmt(IND.woz, value(b, "woz"))) : ""}</span></span>
+              <span class="lnum">${r.score}</span>
+              <span class="bar"><i style="width:${r.score}%"></i></span>
+              ${strong.length || weak.length ? `<span class="lx">${strong.length ? `${esc(t.why)}: <b>${strong.map((p) => esc(L(IND[p.key]).toLowerCase())).join(", ")}</b>. ` : ""}${weak.length ? `${esc(t.weak)}: ${weak.map((p) => esc(L(IND[p.key]).toLowerCase())).join(", ")}.` : ""}</span>` : ""}
+            </button>`;
+        }).join("")}</div>` : `<div class="empty">${esc(t.excluded(left))}</div>`}
+        ${top.length && left ? `<p class="hint">${esc(t.excluded(left))}</p>` : ""}
+        ${sel && scores.has(sel.code) ? `<div><button type="button" class="btn" id="openprof">${esc(t.openProfile)}: ${esc(sel.name)}</button></div>` : ""}
+      </section>
+      ${P && top.length ? `<section class="sec"><h3>${esc(t.explainTitle)}</h3>
+        ${explainState === "busy" ? `<div class="askrow"><span class="status">${esc(t.thinking)}</span><button type="button" class="btn" id="explstop">${esc(t.stop)}</button></div>` : ""}
+        <div class="explain" id="explain"></div>
+        ${explainState !== "busy" && !explainText ? `<div><button type="button" class="btn" id="explbtn">${esc(t.explainBtn(P.label))}</button></div>` : ""}
+        ${explainState === "error" ? `<span class="status err">${esc(t.askErr.default)}</span>` : ""}
+      </section>` : ""}`;
+    }
+
+    return `
+      <h2 class="lead">${esc(t.fLead)}</h2>
+      <p class="sub">${esc(t.fSub)}</p>
+      <section class="sec">${aiBox}</section>
+      <section class="sec"><h3>${esc(t.quick)}</h3><div class="chips">${chips}</div></section>
+      <section class="sec"><h3>${esc(t.criteria)}</h3>
+        ${crits ? `<div class="crits">${crits}</div>` : `<div class="empty">${esc(t.noCrit)}</div>`}
+        <div class="addrow"><select id="addcrit" aria-label="${esc(t.add)}"><option value="">${esc(t.add)}</option>${addOpts}</select></div>
+        <div class="budget">
+          <div class="bh"><input type="checkbox" id="budgeton" ${budget != null ? "checked" : ""}><label for="budgeton">${esc(t.budget)}</label><output id="budgetout">${budget != null ? esc(fmt(IND.woz, budget)) : ""}</output></div>
+          <input type="range" id="budget" min="${bMin}" max="${bMax}" step="10000" value="${bVal}" ${budget == null ? "disabled" : ""} aria-label="${esc(t.budget)}">
+          <span class="hint" style="font-size:12px;color:var(--muted)">${esc(t.budgetHint)}</span>
+        </div>
+        ${unsupported.length ? `<p class="note">${esc(t.unsupported(unsupported.join(", ")))}</p>` : ""}
+      </section>
+      ${results}`;
+  }
+
+  function selectText(el) {
+    const r = document.createRange(); r.selectNodeContents(el);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+  }
+
+  function connectorHTML(t) {
+    return `<div class="askbox">
+        <span class="cl">${esc(t.cTitle)}</span>
+        <p class="sub">${esc(t.cIntro)}</p>
+        <div class="urlrow"><code id="curl">${esc(CONNECTOR_URL)}</code><button type="button" class="btn" id="ccopy">${esc(t.cCopy)}</button></div>
+        <ol class="steps">
+          <li><b>Claude</b>: ${esc(t.cClaude)}</li>
+          <li><b>ChatGPT</b>: ${esc(t.cChatGPT)}</li>
+        </ol>
+        <p class="sub">${esc(t.cTry)}</p>
+        ${CLAUDE_APP_URL ? `<a class="btn primary linkbtn" href="${esc(CLAUDE_APP_URL)}" target="_blank" rel="noopener">${esc(t.cOpenClaude)}</a>` : ""}
+      </div>`;
+  }
+
+  function wirePanel(P) {
+    P.querySelectorAll("[data-k]").forEach((el) => (el.onclick = () => setIndicator(el.dataset.k, el.dataset.m)));
+    P.querySelectorAll("[data-go]").forEach((el) => (el.onclick = () => { picking = false; $("picking").hidden = true; choose(byCode[el.dataset.go]); }));
+    const cb = $("cmpbtn"); if (cb) cb.onclick = () => { picking = !picking; $("picking").hidden = !picking; renderPanel(false); };
+    const cc = $("cmpclear"); if (cc) cc.onclick = () => { cmp = null; highlight(); renderPanel(false); };
+    // finder
+    P.querySelectorAll("[data-preset]").forEach((el) => (el.onclick = () => {
+      const id = el.dataset.preset;
+      if (presetActive(id)) criteria = criteria.filter((c) => !PRESETS[id].some(([k]) => k === c.key));
+      else addCriteria(PRESETS[id]);
+      explainText = ""; explainState = "idle"; update();
+    }));
+    P.querySelectorAll("[data-dir]").forEach((el) => (el.onclick = () => { const c = criteria[+el.dataset.dir]; c.dir = c.dir === "high" ? "low" : "high"; explainText = ""; update(); }));
+    P.querySelectorAll("[data-w]").forEach((el) => (el.onclick = () => { const [i, w] = el.dataset.w.split(":").map(Number); criteria[i].w = w; explainText = ""; update(); }));
+    P.querySelectorAll("[data-x]").forEach((el) => (el.onclick = () => { criteria.splice(+el.dataset.x, 1); explainText = ""; update(); }));
+    P.querySelectorAll("[data-pick]").forEach((el) => (el.onclick = () => { sel = byCode[el.dataset.pick]; highlight(); renderPanel(false); }));
+    const add = $("addcrit"); if (add) add.onchange = () => { if (add.value) { addCriteria([[add.value, "high", 2]]); explainText = ""; update(); } };
+    const bon = $("budgeton"), br = $("budget");
+    if (bon) bon.onchange = () => { budget = bon.checked ? Number(br.value) : null; explainText = ""; update(); };
+    if (br) {
+      br.oninput = () => { $("budgetout").textContent = fmt(IND.woz, Number(br.value)); };
+      br.onchange = () => { budget = Number(br.value); explainText = ""; update(); };
+    }
+    const cc2 = $("ccopy");
+    if (cc2) cc2.onclick = () => {
+      const done = () => { cc2.textContent = T().cCopied; };
+      try { navigator.clipboard.writeText(CONNECTOR_URL).then(done, () => selectText($("curl"))); } catch { selectText($("curl")); }
+    };
+    const pk = $("aipick"); if (pk) pk.onchange = () => { aiId = pk.value; store.set("bk.ai", aiId); renderPanel(false); };
+    const ab = $("askbtn"); if (ab) ab.onclick = () => ask($("ask").value);
+    const ta = $("ask"); if (ta) ta.onkeydown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) ask(ta.value); };
+    const as = $("askstop"); if (as) as.onclick = () => askCtl?.abort();
+    const eb = $("explbtn"); if (eb) eb.onclick = () => explain();
+    const es = $("explstop"); if (es) es.onclick = () => explainCtl?.abort();
+    const op = $("openprof"); if (op) op.onclick = () => setTab("profile");
+  }
+
+  // ------------------------------------------------------------ controls & language
+  function syncControls() {
+    const t = T();
+    document.documentElement.lang = lang;
+    document.querySelectorAll("[data-t]").forEach((el) => (el.textContent = t[el.dataset.t]));
+    $("search").placeholder = t.searchPh;
+    $("reset").textContent = t.reset;
+    $("picking").textContent = t.picking;
+    $("sub").textContent = t.sub(D.buurten.length, latestYear);
+    $("l-en").setAttribute("aria-pressed", lang === "en");
+    $("l-nl").setAttribute("aria-pressed", lang === "nl");
+    const hasTrend = !!IND[cur].trend;
+    $("m-level").textContent = t.level; $("m-change").textContent = t.change;
+    $("m-change").disabled = !hasTrend; $("m-change").title = hasTrend ? "" : t.changeOff;
+    $("m-level").setAttribute("aria-pressed", mode === "level");
+    $("m-change").setAttribute("aria-pressed", mode === "change");
+    $("map").setAttribute("aria-label", lang === "nl" ? "Kaart van de buurten van Utrecht" : "Map of Utrecht's buurten");
+    const s = $("ind");
+    s.innerHTML = d3.groups(D.indicators, (i) => G(i)).map(([g, inds]) =>
+      `<optgroup label="${esc(g)}">${inds.map((i) => `<option value="${i.key}">${esc(L(i))}${i.trend ? " ·" : ""}</option>`).join("")}</optgroup>`).join("");
+    s.value = cur;
+  }
+
+  function setupControls() {
+    $("ind").onchange = () => setIndicator($("ind").value);
+    $("m-level").onclick = () => { mode = "level"; if (tab === "find") setTab("profile"); else { syncControls(); colour(); renderPanel(false); } };
+    $("m-change").onclick = () => { if (!IND[cur].trend) return; mode = "change"; if (tab === "find") setTab("profile"); else { syncControls(); colour(); renderPanel(false); } };
+    const setLang = (l) => { lang = l; store.set("bk.lang", l); syncControls(); colour(); renderPanel(false); fillDatalist(); };
+    $("l-en").onclick = () => setLang("en");
+    $("l-nl").onclick = () => setLang("nl");
+    $("t-profile").onclick = () => setTab("profile");
+    $("t-find").onclick = () => setTab("find");
+    fillDatalist();
+    const search = $("search");
+    const find = () => {
+      const q = search.value.trim().toLowerCase();
+      if (!q) return;
+      const pc = q.replace(/\s/g, "").slice(0, 4);
+      const b = D.buurten.find((x) => x.name.toLowerCase() === q)
+        || D.buurten.find((x) => /^\d{4}$/.test(pc) && x.postcode === pc)
+        || D.buurten.find((x) => x.name.toLowerCase().includes(q));
+      if (b) { picking = false; $("picking").hidden = true; choose(b); search.select(); }
+    };
+    search.addEventListener("change", find);
+    search.addEventListener("keydown", (e) => { if (e.key === "Enter") find(); });
+  }
+  function fillDatalist() {
+    $("buurtlist").innerHTML = D.buurten.map((b) =>
+      `<option value="${esc(b.name)}">${esc(wijkShort(b.wijk))}${b.postcode ? " · " + esc(b.postcode) : ""}</option>`).join("");
+  }
+
+  fetch("data/buurten.json")
+    .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then((data) => {
+      D = data;
+      IND = Object.fromEntries(D.indicators.map((i) => [i.key, i]));
+      byCode = Object.fromEntries(D.buurten.map((b) => [b.code, b]));
+      latestYear = Math.max(...D.meta.current_years);
+      years = D.meta.series_years;
+      if (!IND[cur]) cur = "woz";
+      setupControls();
+      syncControls();
+      const fromHash = byCode[(location.hash || "").slice(1)];
+      sel = fromHash || D.buurten.find((b) => b.name === "Wittevrouwen") || D.buurten[0];
+      if (tab === "find" && !criteria.length) addCriteria(PRESETS.family);
+      computeScores();
+      $("t-profile").setAttribute("aria-selected", tab === "profile");
+      $("t-find").setAttribute("aria-selected", tab === "find");
+      drawMap();
+      renderPanel();
+      new ResizeObserver(() => drawMap()).observe($("map"));
+      detectProviders();
+    })
+    .catch((err) => {
+      $("pbody").innerHTML = `<p class="eyebrow">Data</p><h2 class="pname">Couldn't load the neighbourhood data</h2>
+        <p>The page looks for <code>data/buurten.json</code> next to it. Run <code>python scripts/build_data.py</code>, then serve the <code>web</code> folder (for example <code>python -m http.server</code>). (${esc(err.message)})</p>`;
+    });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+# Raw API downloads (rebuild with scripts/build_data.py --refresh)
+cache/
+
+# Node / Firebase
+node_modules/
+functions/node_modules/
+.firebase/
+*.log
+firebase-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+
+# Local secrets
+.env.local
+*.local
+
+# Copied from web/data at deploy time
+functions/data/
