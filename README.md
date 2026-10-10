@@ -47,18 +47,6 @@ cd web && python -m http.server 8000    # open http://localhost:8000
 
 Python 3.10+ standard library only.
 
-## Deploy (Firebase)
-
-```bash
-npx firebase-tools login
-npx firebase-tools deploy --only hosting      # the website (free Spark plan is enough)
-npx firebase-tools deploy --only functions    # the MCP connector (needs the Blaze plan)
-```
-
-Cloud Functions require the pay-as-you-go **Blaze** plan. The connector is small
-(read-only, max 3 instances, 256 MiB) and normally stays within the free monthly quota.
-Set a budget alert in Google Cloud to be safe.
-
 ## Use the connector
 
 URL: `https://<your-site>.web.app/mcp` (Streamable HTTP, no authentication)
